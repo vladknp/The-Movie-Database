@@ -4,7 +4,6 @@
  * @param {string} query - The request to server
  * @param {number} page - Show page number
  */
-
 function getURL({ query, page = 1 }) {
   return `https://api.themoviedb.org/3/search/movie?api_key=5f6969df62383d057f48f5e2ac804c97&language=en-US&query=${query}&page=${page}&include_adult=false`;
 };
@@ -63,8 +62,6 @@ function createPagination(total, btnPage) {
   const current =  btnPage && btnPage !== void 0 ? btnPage : 1;
   const result = [];
   let node = '';
-
-  // node.classList.add('pagination');
 
   function bntPrev() {
     node = `
@@ -199,7 +196,7 @@ function compare(source, byIncrease) { // [ { node: tr, value: 1, }, { node: tr,
 const input_search = document.getElementById('input-search');
 const button_search = document.getElementById('button-search');
 const table = document.querySelector('table');
-const tbody = table.tBodies[0] || document.createElement('tbody');
+const tbody = table.tBodies[0] || table.appendChild(document.createElement('tbody'));
 const pagination = document.getElementById('pagination');
 const sortUp = {
   isUp: true,
@@ -207,9 +204,6 @@ const sortUp = {
 };
 let numberPage;
 let movies = {};
-
-
-table.appendChild(tbody);
 
 
 document.addEventListener('click', (e) => {
@@ -237,8 +231,12 @@ document.addEventListener('click', (e) => {
   /** Search info   */
   if (btnSearch || btnPage || prevPage || nextPage) {
     const query = input_search.value;
-    
-    getMovies(query, numberPage).then(request => {
+
+    function search(request) {
+      if (request.errors) {
+        return;
+      };
+      
       Object.assign(movies, request);
 
       const { results, total_pages } = movies;
@@ -247,8 +245,10 @@ document.addEventListener('click', (e) => {
       appendChildHTML(tbody, createTR(results));
 
       pagination.innerHTML = '';
-      appendChildHTML(pagination, createPagination(total_pages, numberPage))
-    });
+      appendChildHTML(pagination, createPagination(total_pages, numberPage));
+    };
+    
+    getMovies(query, numberPage).then(search);
 
     e.preventDefault();
     
