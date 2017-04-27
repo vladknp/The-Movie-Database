@@ -35,75 +35,87 @@ function run(generator, ...args) {
   return iterate(iterator.next());
 };
 
-function tBody(node, props) {
-  const { id, title = 'Killer Elite', original_language = 'en', popularity = 3.108736, vote_count = 576, vote_average = 6, release_date = '2011-09-23' } = props;
-  
-  const template = `
-    <th scope="row">${id}</th>
-    <td>${title}</td>
-    <td>${original_language}</td>
-    <td>${popularity}</td>
-    <td>${vote_count}</td>
-    <td>${vote_average}</td>
-    <td>${release_date}</td>
-  `;
+function createTR(arr) {
+  let node = '';
 
-  const tr = document.createElement('tr');
+  return arr.reduce((prev, current) => {
+    const { id, title, original_language, popularity, vote_count, vote_average, release_date } = current;
 
-  tr.innerHTML = template;
+    node = `
+      <tr>
+        <th scope="row">${id}</th>
+        <td>${title}</td>
+        <td>${original_language}</td>
+        <td>${popularity}</td>
+        <td>${vote_count}</td>
+        <td>${vote_average}</td>
+        <td>${release_date}</td>
+      </tr>
+    `;
+    
+    prev.push({ node });
 
-  node.appendChild(tr);
+    return prev;
+  }, []);
 };
 
-function pagination(total, btnPage) {
+function createPagination(total, btnPage) {
   const current =  btnPage && btnPage !== void 0 ? btnPage : 1;
-  const node = document.createElement('ul');
+  const result = [];
+  let node = '';
 
-  node.classList.add('pagination');
+  // node.classList.add('pagination');
 
-  function prev() {
-    const li = document.createElement('li');
-
-    li.innerHTML = `
-      <a href="#" aria-label="Previous">
-        <span aria-hidden="true">&laquo;</span>
-      </a>
+  function bntPrev() {
+    node = `
+      <li>
+        <a href="#" aria-label="Previous">
+          <span aria-hidden="true">&laquo;</span>
+        </a>
+      </li>
     `;
-
-    return li;
+    
+    result.push({ node });
   };
 
-  function next() {
-    const li = document.createElement('li');
-
-    li.innerHTML = `
+  function btnNext() {
+    node = `
+      <li>
         <a href="#" aria-label="Next">
           <span aria-hidden="true">&raquo;</span>
         </a>
+      </li>
     `;
 
-    return li;
+     result.push({ node });
   };
 
+  function btnNumber() {
+    let number;
 
-  node.appendChild(prev());
+    for(number = 1; number <= total; number++) {
+      
+      if(number === current) {
+        node = `
+          <li class="active"><a href="#">${number}</a></li>
+        `;
+      } else {
+        node = `
+          <li><a href="#">${number}</a></li>
+        `;
+      }
+      result.push({ node });
 
-  let number;
+    };
+  }
 
-  for(number = 1; number <= total; number++) {
-    const li = document.createElement('li');
+  bntPrev();
 
-    if(number === current) {
-      li.classList.add('active');
-    }
+  btnNumber();
 
-    li.innerHTML = `<a href="#">${number}</a>`;
-    node.appendChild(li);
-  };
+  btnNext();
 
-  node.appendChild(next());
-
-  return node;
+  return result.reverse();
 };
 
 /**
@@ -124,11 +136,23 @@ function getMovies(query, page) {
   ).catch(console.error);
 };
 
-function createTBody(tag, nodes) {
-  tag.innerHTML = '';
-  nodes.forEach(e => tag.appendChild(e.node));
+function getNodeRowsByIndex(arrNodeRows, index) {
+  return Array.prototype.reduce.call(arrNodeRows, (prev, current) => {
+    const node = current;
+    const value = current.cells[index].innerText;
 
-  return tBody;
+    prev.push({ node, value });
+
+    return prev;
+  }, []);
+};
+
+function appendChildHTML(parentNode, nodes) {
+  nodes.forEach(e => parentNode.insertAdjacentHTML('afterbegin', e.node));
+};
+
+function appendChildNodes(parentNode, nodes) {
+  nodes.forEach(e => parentNode.insertAdjacentElement('afterbegin', e.node));
 };
 
 function compareString(a, b) {
@@ -158,8 +182,8 @@ function compare(source, byIncrease) { // [ { node: tr, value: 1, }, { node: tr,
 
   const newSource = tempMap.string.concat(tempMap.object);
 
-  if (!!byIncrease) {
-    return tempMap.string.concat(tempMap.object);
+  if (!byIncrease) {
+    return newSource;
   } else {
     return newSource.reverse();
   } 
@@ -175,13 +199,17 @@ function compare(source, byIncrease) { // [ { node: tr, value: 1, }, { node: tr,
 const input_search = document.getElementById('input-search');
 const button_search = document.getElementById('button-search');
 const table = document.querySelector('table');
-const paginator = document.getElementById('pagination');
+const tbody = table.tBodies[0] || document.createElement('tbody');
+const pagination = document.getElementById('pagination');
 const sortUp = {
   isUp: true,
-  index: void 0,
+  index: 1,
 };
 let numberPage;
 let movies = {};
+
+
+table.appendChild(tbody);
 
 
 document.addEventListener('click', (e) => {
@@ -209,25 +237,17 @@ document.addEventListener('click', (e) => {
   /** Search info   */
   if (btnSearch || btnPage || prevPage || nextPage) {
     const query = input_search.value;
-
+    
     getMovies(query, numberPage).then(request => {
       Object.assign(movies, request);
 
-      const tbody = document.createElement('tbody');
-
       const { results, total_pages } = movies;
 
-      for(result of results) {
-        tBody(tbody, result);
-      };
+      tbody.innerHTML = '';
+      appendChildHTML(tbody, createTR(results));
 
-      /** Append tBodies into DOM */
-      table.tBodies[0] && table.removeChild(table.tBodies[0]);
-      table.appendChild(tbody);
-
-      /** Append nav pages into DOM */
-      paginator.innerHTML = '';
-      paginator.appendChild(pagination(total_pages, numberPage));
+      pagination.innerHTML = '';
+      appendChildHTML(pagination, createPagination(total_pages, numberPage))
     });
 
     e.preventDefault();
@@ -239,8 +259,7 @@ document.addEventListener('click', (e) => {
   /** Sort content   */
   if (column) {
     const table = target.closest('TABLE');
-    const tBody = table.tBodies[0];
-    const arrRows = tBody.rows;
+    const arrRows = tbody.rows;
     const index = column.cellIndex;
 
     if (sortUp.index !== index) {
@@ -249,18 +268,11 @@ document.addEventListener('click', (e) => {
     };
 
     /** [ { node: tr, value: tr.cells[index].innerText }, ] */
-    const arrNodeRows = Array.prototype.reduce.call(arrRows, (prev, current) => {
-      const node = current;
-      const value = current.cells[index].innerText;
-
-      prev.push({ node, value });
-
-      return prev;
-    }, []);
+    const arrNodeRows = getNodeRowsByIndex(arrRows, index);
 
     const nodes = compare(arrNodeRows, sortUp.isUp);
 
-    createTBody(tBody, nodes);
+    appendChildNodes(tbody, nodes);
 
     sortUp.isUp = !sortUp.isUp;
 
