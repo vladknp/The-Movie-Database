@@ -146,6 +146,7 @@
   };
 
   function appendChildHTML(parentNode, nodes) {
+    parentNode.innerHTML = '';
     nodes.forEach(e => parentNode.insertAdjacentHTML('afterbegin', e.node));
   };
 
@@ -198,19 +199,53 @@
   const button_search = document.getElementById('button-search');
   const table = document.querySelector('table');
   const tbody = table.tBodies[0] || table.appendChild(document.createElement('tbody'));
+  const thead = table.tHead;
+  const allTH = thead.getElementsByTagName('TH');
   const pagination = document.getElementById('pagination');
   const sortUp = {
     isUp: true,
     rowIndex: 1,
+    sortIcon: 'sort-up',
   };
   let numberPage = 1;
   let movies = {};
+
+  function viewGetResult(request) {
+    if (request.errors) {
+      return;
+    };
+
+    Object.assign(movies, request);
+
+    makeResult();
+  };
+
+  function makeResult() {
+    const { results, total_pages } = movies;
+
+    appendChildHTML(tbody, createTR(results));
+
+    const arrNodeRows = getNodeRowsByIndex(tbody.rows, sortUp.rowIndex);
+
+    const nodes = compare(arrNodeRows, !sortUp.isUp);
+
+    appendChildNodes(tbody, nodes);
+
+    appendChildHTML(pagination, createPagination(total_pages, numberPage));
+  };
+
+  function clearSortIcon() {
+    Array.prototype.forEach.call(allTH, (th) => {
+      th.classList.remove('sort-up');
+      th.classList.remove('sort-down');
+    });
+  };
 
 
   document.addEventListener('click', (e) => {
     const target = e.target;
     const btnSearch = target.closest('#button-search');
-    const column = target.closest('TH');
+    const TH = target.closest('TH');
 
     btnPage = target.closest('#pagination')
       && !target.closest('a').getAttribute('aria-label')
@@ -233,23 +268,7 @@
     if (btnSearch || btnPage || prevPage || nextPage) {
       const query = input_search.value;
 
-      function search(request) {
-        if (request.errors) {
-          return;
-        };
-        
-        Object.assign(movies, request);
-
-        const { results, total_pages } = movies;
-
-        tbody.innerHTML = '';
-        appendChildHTML(tbody, createTR(results));
-
-        pagination.innerHTML = '';
-        appendChildHTML(pagination, createPagination(total_pages, numberPage));
-      };
-      
-      getMovies(query, numberPage).then(search);
+      getMovies(query, numberPage).then(viewGetResult);
 
       e.preventDefault();
       
@@ -258,24 +277,32 @@
 
 
     /** Sort content   */
-    if (column) {
-      const table = target.closest('TABLE');
+    if (TH && movies.results) {
       const arrRows = tbody.rows;
-      const index = column.cellIndex;
+      const index = TH.cellIndex;
 
       if (sortUp.rowIndex !== index) {
         sortUp.isUp = true;
         sortUp.rowIndex = index;
+
+        clearSortIcon();
+        
+        sortUp.sortIcon = 'sort-up';
       };
+
+      sortUp.isUp = !sortUp.isUp;
 
       /** [ { node: tr, value: tr.cells[index].innerText }, ] */
       const arrNodeRows = getNodeRowsByIndex(arrRows, index);
 
-      const nodes = compare(arrNodeRows, sortUp.isUp);
+      const nodes = compare(arrNodeRows, !sortUp.isUp);
 
       appendChildNodes(tbody, nodes);
 
-      sortUp.isUp = !sortUp.isUp;
+      clearSortIcon();
+
+      TH.classList.add(sortUp.sortIcon);
+      !sortUp.isUp ? sortUp.sortIcon = 'sort-down' : sortUp.sortIcon = 'sort-up';
 
       e.preventDefault();
 
